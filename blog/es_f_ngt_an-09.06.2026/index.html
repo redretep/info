@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>es fängt an</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const md = document.getElementById('raw-markdown-source').textContent;
+            document.getElementById('view').innerHTML = marked.parse(md);
+        });
+    </script>
+    <style>
+        body { background: #121212; color: #e0e0e0; font-family: sans-serif; max-width: 680px; margin: 0 auto; padding: 2rem 1.5rem; }
+        a { color: #fff; text-decoration: none; display: inline-block; margin-bottom: 2rem; }
+        .prose h1, .prose h2 { color: #fff; margin: 1.5rem 0 1rem 0; }
+        .prose p { margin-bottom: 1.25rem; color: #ccc; line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <a href="/info/">← Back to Dashboard</a>
+    <main id="view" class="prose"></main>
+    <script type="text/plain" id="raw-markdown-source"># ich mach 1 blog
+weil ich gehe ja nach neuseeland und so #swag</script>
+</body>
+</html>
