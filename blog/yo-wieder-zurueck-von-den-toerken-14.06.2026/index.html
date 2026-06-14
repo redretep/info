@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>yo wieder zurück von den törken</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { background: #121212; color: #e0e0e0; font-family: sans-serif; line-height: 1.6; max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+        a { color: #fff; text-decoration: underline; }
+        .back-link { display: inline-block; margin-bottom: 2rem; text-decoration: none; color: #a0a0a0; }
+        .back-link:hover { color: #fff; }
+        .prose h1, .prose h2, .prose h3 { color: #fff; margin: 1.5rem 0 1rem 0; font-weight: 500;}
+        .prose p { margin-bottom: 1.25rem; color: #ccc; }
+        .prose blockquote { border-left: 3px solid #2c2c2c; padding-left: 1rem; color: #a0a0a0; }
+        .prose pre { background: #000; padding: 1rem; border-radius: 6px; overflow-x: auto; margin-bottom: 1rem; }
+        .prose code { background: #000; padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace; font-size: 0.9em; }
+        .prose table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+        .prose th, .prose td { border: 1px solid #2c2c2c; padding: 0.5rem; }
+        .admonition { border-left: 4px solid #fff; background: rgba(255,255,255,0.05); padding: 1rem; margin: 1.5rem 0; border-radius: 0 4px 4px 0; }
+        .admonition-danger { border-left-color: #ff4444; } .admonition-info { border-left-color: #33b5e5; } .admonition-warning { border-left-color: #ffbb33; } .admonition-greentext { border-left-color: #00C851; color: #00C851; }
+        .spoiler { background-color: #444; color: transparent; border-radius: 3px; padding: 0 4px; cursor: pointer; transition: 0.3s; }
+        .spoiler.revealed { color: inherit; background-color: rgba(255,255,255,0.1); }
+        mark { background: #ffea00; color: #000; padding: 0 2px; }
+        .toc { background: #1e1e1e; padding: 1rem; border-radius: 6px; margin: 1rem 0; font-size: 0.9rem;}
+        .toc ul { list-style: none; margin: 0; padding: 0; }
+        img { max-width: 100%; border-radius: 4px; }
+    </style>
+    <script>
+        
+        // --- CUSTOM EXTENDED MARKDOWN PARSER ---
+        // Bundled together so it can be injected into the generated posts
+        function parseCustomMarkdown(text) {
+            if(!text) return "";
+            
+            // 1. PRE-PROCESSING
+            // Comments [//]: (comment)
+            text = text.replace(/^\[\/\/\]: \((.*?)\)$/gm, '');
+            // Admonitions !!! type Title \n text
+            text = text.replace(/^!!! ([\w]+)(?: (.*))?\n((?:[ ]{4}.*\n?)+)/gm, (m, type, title, body) => {
+                let cleanBody = body.replace(/^[ ]{4}/gm, '');
+                title = title || type.charAt(0).toUpperCase() + type.slice(1);
+                return `<div class="admonition admonition-${type.toLowerCase()}"><strong>${title}</strong><br>${cleanBody}</div>`;
+            });
+            // Float clear !;
+            text = text.replace(/^!;$/gm, '<div style="clear:both;"></div>');
+            // Spoilers !>text
+            text = text.replace(/!>(.*?)$/gm, '<span class="spoiler" onclick="this.classList.toggle(\'revealed\')">$1</span>');
+            // Colors %color% text %%
+            text = text.replace(/%([^%]+)%\s+(.*?)\s*%%/g, '<span style="color: $1">$2</span>');
+            // Underlines & Types !~color;style;text~!
+            text = text.replace(/!~([^~]+)~!/g, (match, content) => {
+                let parts = content.trim().split(' ');
+                if (parts.length > 1 && parts[0].includes(';')) {
+                    let c = parts[0].split(';');
+                    let col = c[0] && c[0]!=='default' ? c[0] : 'currentColor';
+                    let sty = c[1] && c[1]!=='default' ? c[1] : 'solid';
+                    let typ = c[2] && c[2]!=='default' ? c[2] : 'underline';
+                    let thk = c[3] && c[3]!=='default' ? c[3]+'px' : 'auto';
+                    let str = parts.slice(1).join(' ');
+                    return `<span style="text-decoration: ${typ} ${sty} ${col} ${thk};">${str}</span>`;
+                }
+                return `<span style="text-decoration: underline;">${content}</span>`;
+            });
+            // Mark ==text==
+            text = text.replace(/==([^=]+)==/g, '<mark>$1</mark>');
+
+            // 2. MARKED.JS PARSING
+            const renderer = new marked.Renderer();
+            let toc = [];
+            renderer.heading = function(token) {
+                let txt = typeof token === 'string' ? token : token.text;
+                let lvl = typeof token === 'string' ? arguments[1] : token.depth;
+                const id = txt.toLowerCase().replace(/[^\w]+/g, '-');
+                toc.push({ level: lvl, id: id, text: txt });
+                return `<h${lvl} id="${id}">${txt}</h${lvl}>\n`;
+            };
+            marked.use({ renderer, breaks: true, gfm: true });
+            let html = marked.parse(text);
+
+            // 3. POST-PROCESSING HTML
+            // Alignment
+            html = html.replace(/<p>-&gt; (.*?) &lt;-<\/p>/g, '<p style="text-align:center">$1</p>');
+            html = html.replace(/<p>-&gt; (.*?) -&gt;<\/p>/g, '<p style="text-align:right">$1</p>');
+            html = html.replace(/<h(\d)([^>]*)>-&gt; (.*?) &lt;-<\/h\1>/g, '<h$1$2 style="text-align:center">$3</h$1>');
+            // TOC [TOC]
+            html = html.replace(/<p>\[TOC(\d)?\]<\/p>/g, (m, minLvl) => {
+                let min = minLvl ? parseInt(minLvl) : 1;
+                let tocHtml = '<div class="toc"><strong>Table of Contents</strong><ul>';
+                toc.filter(h => h.level >= min).forEach(h => {
+                    tocHtml += `<li style="margin-left: ${(h.level - min)*1.5}em"><a href="#${h.id}">${h.text}</a></li>`;
+                });
+                return tocHtml + '</ul></div>';
+            });
+            // Table newlines \n
+            html = html.replace(/(<t[dh][^>]*>)(.*?)(<\/t[dh]>)/gs, (m, o, c, cl) => o + c.replace(/\\n/g, '<br>') + cl);
+            // Images Formatting
+            html = html.replace(/<img([^>]+)src="([^"]+)"([^>]*)>(?:\s*\{([^:]+):([^}]+)\})/g, '<img$1src="$2"$3 style="width:$4; height:$5;">');
+            html = html.replace(/<img([^>]+)src="([^"]+)#(left|right)"([^>]*)>/g, (m, pre, src, dir, post) => {
+                let margin = dir === 'left' ? 'margin-right:1rem;' : 'margin-left:1rem;';
+                return `<img${pre}src="${src}"${post} style="float:${dir}; ${margin}">`;
+            });
+
+            return html;
+        }
+    
+        document.addEventListener('DOMContentLoaded', () => {
+            const md = document.getElementById('raw-markdown-source').textContent;
+            document.getElementById('view').innerHTML = parseCustomMarkdown(md);
+        });
+    </script>
+</head>
+<body>
+    <a href="/info/" class="back-link">← Back to Dashboard</a>
+    <h1 style="font-size: 2.5rem; margin-bottom: 2rem;">yo wieder zurück von den törken</h1>
+    <main id="view" class="prose">Loading...</main>
+    <script type="text/plain" id="raw-markdown-source">ok ich mach schnell weil muss eig für physik bsl morgen lernen aber eig is free aber ok also war tuff in turkye wir habe so crazy viele moscheen gesehen und adams blutsbrüder ja war sehr geil und waren so 43 mal esssen war auch sehr giel und hab mir tns und gucci cap geholt weil ich bin jetz auch 1 talahon und 6 deutschlandtrikots ja das war sehr geil beim basar überall gabs kranke fakes von allem möglichem für 10 euro oder so war krank
+
+>*leute tanzen & ich gebe turbo
+in meinem kopf is so viel dopamin*
+>>01099 is die familyyyy</script>
+</body>
+</html>
